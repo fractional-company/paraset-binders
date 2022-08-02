@@ -2,8 +2,8 @@
 pragma solidity 0.8.10;
 
 import "ds-test/test.sol";
-import "solmate/tokens/ERC20.sol";
-import "solmate/tokens/ERC1155.sol";
+import {ERC20} from "solmate/tokens/ERC20.sol";
+import {ERC1155} from "solmate/tokens/ERC1155.sol";
 import "../Binders.sol";
 
 contract TestERC20 is ERC20 {

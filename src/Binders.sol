@@ -2,7 +2,28 @@
 pragma solidity 0.8.10;
 
 import {Owned} from "solmate/auth/Owned.sol";
-import {ERC1155TokenReceiver} from "solmate/tokens/ERC1155.sol";
+
+abstract contract ERC1155TokenReceiver {
+    function onERC1155Received(
+        address,
+        address,
+        uint256,
+        uint256,
+        bytes calldata
+    ) external virtual returns (bytes4) {
+        return ERC1155TokenReceiver.onERC1155Received.selector;
+    }
+
+    function onERC1155BatchReceived(
+        address,
+        address,
+        uint256[] calldata,
+        uint256[] calldata,
+        bytes calldata
+    ) external virtual returns (bytes4) {
+        return ERC1155TokenReceiver.onERC1155BatchReceived.selector;
+    }
+}
 
 interface IERC20 {
     function balanceOf(address) external returns(uint256);
@@ -59,7 +80,6 @@ contract Binder is ERC1155TokenReceiver, Owned {
     
     enum Stages{Setup, Cached, Finished}
     Stages public stage;
-
 
     // The cards in the set
     mapping(uint256 => bool) cardInSet;
@@ -201,7 +221,6 @@ contract Binder is ERC1155TokenReceiver, Owned {
     ) external virtual override returns (bytes4) {
         return ERC1155TokenReceiver.onERC1155BatchReceived.selector;
     }
-
 }
 
 contract Factory is Owned {
