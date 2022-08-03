@@ -145,10 +145,10 @@ contract Binder is ERC1155TokenReceiver, Owned {
         uint32[] memory percentAllocations = new uint32[](cards.length + 1);
         for (uint256 x = 0; x < cards.length; x++) {
             accounts[x] = cardToOwner[cards[x]];
-            percentAllocations[x] = uint32(100000) / uint32(cards.length+1);
+            percentAllocations[x] = uint32(90000) / uint32(cards.length);
         }
         accounts[cards.length] = owner;
-        percentAllocations[cards.length] = 100000 - (100000 / uint32(cards.length+1) * uint32(cards.length));
+        percentAllocations[cards.length] = 100000 - (90000 / uint32(cards.length) * uint32(cards.length));
         split = SPLITS.createSplit(accounts, percentAllocations, 0, address(this));
         CACHING.cache(pid, 1);
         stage = Stages.Cached;
