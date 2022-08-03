@@ -230,6 +230,8 @@ contract Factory is Owned {
     address public rewards;
     address public splits;
 
+    mapping(uint256 => uint32) public cardsToPoints;
+
     constructor(address _rewards, address _splits) Owned(msg.sender) {
         rewards = _rewards;
         splits = _splits;
