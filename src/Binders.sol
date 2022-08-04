@@ -62,23 +62,27 @@ interface ISplitMain {
   ) external returns (address);
 }
 
-contract Binder is ERC1155TokenReceiver, Owned {
+contract Binder is ERC1155TokenReceiver {
     // Add the library methods
     using EnumerableMap for EnumerableMap.AddressToUintMap;
 
     event Deposit(address indexed user, uint256 cardId);
     event Withdraw(address indexed user, uint256 cardId);
     event Cached();
+    event OwnerUpdated(address indexed user, address indexed newOwner);
 
     // 0xECa9D81a4dC7119A40481CFF4e7E24DD0aaF56bD
-    IPrimeRewards public immutable CACHING;
+    IPrimeRewards public CACHING;
     // 0x2ed6c4B5dA6378c7897AC67Ba9e43102Feb694EE
-    ISplitMain public immutable SPLITS;
-    Factory public immutable FACTORY;
+    ISplitMain public SPLITS;
+    Factory public FACTORY;
     uint256[] public cards;
+    bool public initialized;
+
+    address public owner;
 
     address public split;
-    uint256 public immutable pid;
+    uint256 public pid;
     uint256 public totalCardsNeeded = 0;
     uint256 public totalCardsDeposited = 0;
     
@@ -92,7 +96,14 @@ contract Binder is ERC1155TokenReceiver, Owned {
     // Declare a set state variable
     EnumerableMap.AddressToUintMap private addressToPercent;
 
-    constructor(address _factory, address _owner, address _rewards, address _splits, uint256 _pid, uint256[] memory _cards) Owned(_owner) {
+    constructor(address _rewards) {
+        init(address(0), address(0), _rewards, address(0), 0, cards);
+    }
+
+    function init(address _factory, address _owner, address _rewards, address _splits, uint256 _pid, uint256[] memory _cards) public {
+        require(!initialized, "INITIALIZED");
+        initialized = true;
+        owner = _owner;
         CACHING = IPrimeRewards(_rewards);
         SPLITS = ISplitMain(_splits);
         FACTORY = Factory(_factory);
@@ -105,6 +116,11 @@ contract Binder is ERC1155TokenReceiver, Owned {
         }
 
         IERC1155(CACHING.parallelAlpha()).setApprovalForAll(address(CACHING), true);
+    }
+
+    modifier onlyOwner() virtual {
+        require(msg.sender == owner, "UNAUTHORIZED");
+        _;
     }
 
     modifier isSetup() {
@@ -124,6 +140,12 @@ contract Binder is ERC1155TokenReceiver, Owned {
 
     function getAddressPercent(address user) public view returns(uint256) {
         return addressToPercent.get(user);
+    }
+
+    function setOwner(address newOwner) public onlyOwner {
+        owner = newOwner;
+
+        emit OwnerUpdated(msg.sender, newOwner);
     }
 
     /// @notice Deposit a card from the set. Requires that we are not locked.
@@ -265,18 +287,78 @@ contract Binder is ERC1155TokenReceiver, Owned {
     }
 }
 
-contract Factory is Owned {
+/*
+The MIT License (MIT)
+
+Copyright (c) 2018 Murray Software, LLC.
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be included
+in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+*/
+//solhint-disable max-line-length
+//solhint-disable no-inline-assembly
+
+contract CloneFactory {
+
+  function createClone(address target) internal returns (address result) {
+    bytes20 targetBytes = bytes20(target);
+    assembly {
+      let clone := mload(0x40)
+      mstore(clone, 0x3d602d80600a3d3981f3363d3d373d3d3d363d73000000000000000000000000)
+      mstore(add(clone, 0x14), targetBytes)
+      mstore(add(clone, 0x28), 0x5af43d82803e903d91602b57fd5bf30000000000000000000000000000000000)
+      result := create(0, clone, 0x37)
+    }
+  }
+
+  function isClone(address target, address query) internal view returns (bool result) {
+    bytes20 targetBytes = bytes20(target);
+    assembly {
+      let clone := mload(0x40)
+      mstore(clone, 0x363d3d373d3d3d363d7300000000000000000000000000000000000000000000)
+      mstore(add(clone, 0xa), targetBytes)
+      mstore(add(clone, 0x1e), 0x5af43d82803e903d91602b57fd5bf30000000000000000000000000000000000)
+
+      let other := add(clone, 0x40)
+      extcodecopy(query, other, 0, 0x2d)
+      result := and(
+        eq(mload(clone), mload(other)),
+        eq(mload(add(clone, 0xd)), mload(add(other, 0xd)))
+      )
+    }
+  }
+}
+
+contract Factory is Owned, CloneFactory {
 
     event NewBinder(uint256 pid, address addr);
 
     address public rewards;
     address public splits;
+    address public implementation;
 
     mapping(uint256 => uint256) public cardsToPercent;
 
     constructor(address _rewards, address _splits) Owned(msg.sender) {
         rewards = _rewards;
         splits = _splits;
+        implementation = address(new Binder(rewards));
     }
 
     function updateCardsToPercent(uint256[] calldata _cards, uint256[] calldata _percents) public onlyOwner {
@@ -286,9 +368,10 @@ contract Factory is Owned {
         }
     }
 
-    function newBinder(uint256 pid) public returns(Binder){
+    function newBinder(uint256 pid) public returns(address){
         uint256[] memory ids = IPrimeRewards(rewards).getPoolTokenIds(pid);
-        Binder binder = new Binder(address(this), owner, rewards, splits, pid, ids);
+        address binder = createClone(implementation);
+        Binder(binder).init(address(this), owner, rewards, splits, pid, ids);
         emit NewBinder(pid, address(binder));
         return binder;
     }

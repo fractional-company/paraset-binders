@@ -267,8 +267,8 @@ contract PS15ArtTest is DSTest {
         factory.updateCardsToPercent(setCards, setPercent);
 
 
-        art = factory.newBinder(15);
-        art2 = factory.newBinder(3);
+        art = Binder(factory.newBinder(15));
+        art2 = Binder(factory.newBinder(3));
 
         user1 = new User(address(art), address(cards));
         user2 = new User(address(art), address(cards));
