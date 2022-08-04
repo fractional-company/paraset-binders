@@ -164,8 +164,12 @@ contract MockRewards is ERC1155TokenReceiver {
 
 contract MockSplit {
     function createSplit(address[] calldata accounts, uint32[] calldata amounts, uint32 fee, address controller) public returns (address) {
+        for (uint256 i = 0; i < accounts.length - 1; i++) {
+            require(accounts[i] < accounts[i + 1], "not ordered");
+        }
         uint32 sum = 0;
         for (uint256 x = 0; x < amounts.length; x++) {
+            require(amounts[x] > 0, "not set");
             sum += amounts[x];
         }
         require(sum == 100000, "wrong amounts");
@@ -198,6 +202,9 @@ contract PS15ArtTest is DSTest {
     User public user5;
     User public user6;
 
+    uint256[] public setCards;
+    uint256[] public setPercent;
+
     function setUp() public {
         vm = CheatCodes(0x7109709ECfa91a80626fF3989D68f67F5b1DD12D);
         prime = new TestERC20();
@@ -205,6 +212,60 @@ contract PS15ArtTest is DSTest {
         rewards = new MockRewards(address(cards), address(prime));
         split = new MockSplit();
         factory = new Factory(address(rewards), address(split));
+
+        setCards.push(10627);
+        setCards.push(10645);
+        setCards.push(10625);
+        setCards.push(10490);
+        setCards.push(10628);
+        setCards.push(10629);
+        setPercent.push(2432);
+        setPercent.push(7297);
+        setPercent.push(7297);
+        setPercent.push(14595);
+        setPercent.push(29189);
+        setPercent.push(29189);
+
+        setCards.push(27);
+        setCards.push(28);
+        setCards.push(29);
+        setCards.push(30);
+        setCards.push(31);
+        setCards.push(33);
+        setCards.push(34);
+        setCards.push(35);
+        setPercent.push(11250);
+        setPercent.push(11250);
+        setPercent.push(11250);
+        setPercent.push(11250);
+        setPercent.push(11250);
+        setPercent.push(11250);
+        setPercent.push(11250);
+        setPercent.push(11250);
+
+        setCards.push(10214);
+        setCards.push(10215);
+        setCards.push(10216);
+        setCards.push(10217);
+        setCards.push(10218);
+        setCards.push(10219);
+        setCards.push(10220);
+        setCards.push(10221);
+        setCards.push(10222);
+        setCards.push(10223);
+        setPercent.push(9000);
+        setPercent.push(9000);
+        setPercent.push(9000);
+        setPercent.push(9000);
+        setPercent.push(9000);
+        setPercent.push(9000);
+        setPercent.push(9000);
+        setPercent.push(9000);
+        setPercent.push(9000);
+        setPercent.push(9000);
+
+        factory.updateCardsToPercent(setCards, setPercent);
+
 
         art = factory.newBinder(15);
         art2 = factory.newBinder(3);
@@ -288,6 +349,22 @@ contract PS15ArtTest is DSTest {
         user5.depositCard(10221);
         user6.depositCard(10222);
         user6.depositCard(10223);
+    }
+
+    function testCache3() public {
+        user1.depositCard(27);
+        assertEq(factory.cardsToPercent(27), art.getAddressPercent(address(user1)));
+        user1.depositCard(28);
+        user1.depositCard(29);
+        uint256 percent = art.getAddressPercent(address(user1));
+        user1.withdrawCard(29);
+        assert(percent > art.getAddressPercent(address(user1)));
+        user1.depositCard(29);
+        user1.depositCard(30);
+        user2.depositCard(31);
+        user2.depositCard(33);
+        user2.depositCard(34);
+        user2.depositCard(35);
     }
 
     function testFail_WithdrawWhileCached() public {

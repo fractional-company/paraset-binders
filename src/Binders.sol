@@ -2,6 +2,7 @@
 pragma solidity 0.8.10;
 
 import {Owned} from "solmate/auth/Owned.sol";
+import "openzeppelin-contracts/contracts/utils/structs/EnumerableMap.sol";
 
 abstract contract ERC1155TokenReceiver {
     function onERC1155Received(
@@ -62,6 +63,8 @@ interface ISplitMain {
 }
 
 contract Binder is ERC1155TokenReceiver, Owned {
+    // Add the library methods
+    using EnumerableMap for EnumerableMap.AddressToUintMap;
 
     event Deposit(address indexed user, uint256 cardId);
     event Withdraw(address indexed user, uint256 cardId);
@@ -71,6 +74,7 @@ contract Binder is ERC1155TokenReceiver, Owned {
     IPrimeRewards public immutable CACHING;
     // 0x2ed6c4B5dA6378c7897AC67Ba9e43102Feb694EE
     ISplitMain public immutable SPLITS;
+    Factory public immutable FACTORY;
     uint256[] public cards;
 
     address public split;
@@ -82,13 +86,16 @@ contract Binder is ERC1155TokenReceiver, Owned {
     Stages public stage;
 
     // The cards in the set
-    mapping(uint256 => bool) cardInSet;
+    mapping(uint256 => bool) public cardInSet;
     // The owners of cards in the set
-    mapping(uint256 => address) cardToOwner;
+    mapping(uint256 => address) public cardToOwner;
+    // Declare a set state variable
+    EnumerableMap.AddressToUintMap private addressToPercent;
 
-    constructor(address _owner, address _rewards, address _splits, uint256 _pid, uint256[] memory _cards) Owned(_owner) {
+    constructor(address _factory, address _owner, address _rewards, address _splits, uint256 _pid, uint256[] memory _cards) Owned(_owner) {
         CACHING = IPrimeRewards(_rewards);
         SPLITS = ISplitMain(_splits);
+        FACTORY = Factory(_factory);
         pid = _pid;
         cards = _cards;
         totalCardsNeeded = cards.length;
@@ -115,6 +122,10 @@ contract Binder is ERC1155TokenReceiver, Owned {
         _;
     }
 
+    function getAddressPercent(address user) public view returns(uint256) {
+        return addressToPercent.get(user);
+    }
+
     /// @notice Deposit a card from the set. Requires that we are not locked.
     /// @param cardId The id of the card we want to deposit.
     function deposit(uint256 cardId) public isSetup {
@@ -123,6 +134,11 @@ contract Binder is ERC1155TokenReceiver, Owned {
         cardToOwner[cardId] = msg.sender;
         IERC1155(CACHING.parallelAlpha()).safeTransferFrom(msg.sender, address(this), cardId, 1, "0x0");
         totalCardsDeposited++;
+
+        uint256 percents = FACTORY.cardsToPercent(cardId);
+        (, uint256 total) = addressToPercent.tryGet(msg.sender);
+        addressToPercent.set(msg.sender, total + percents);
+
         if (totalCardsDeposited == totalCardsNeeded) {
             _cache();
         }
@@ -136,20 +152,37 @@ contract Binder is ERC1155TokenReceiver, Owned {
         IERC1155(CACHING.parallelAlpha()).safeTransferFrom(address(this), msg.sender, cardId, 1, "0x0");
         cardToOwner[cardId] = address(0);
         totalCardsDeposited--;
+
+        uint256 percents = FACTORY.cardsToPercent(cardId);
+        (, uint256 total) = addressToPercent.tryGet(msg.sender);
+        addressToPercent.set(msg.sender, total - percents);
+  
         emit Withdraw(msg.sender, cardId);
     }
 
     /// @notice Attempt to cache. Will only work if we have all the cards needed.
     function _cache() internal {        
-        address[] memory accounts = new address[](cards.length + 1);
-        uint32[] memory percentAllocations = new uint32[](cards.length + 1);
-        for (uint256 x = 0; x < cards.length; x++) {
-            accounts[x] = cardToOwner[cards[x]];
-            percentAllocations[x] = uint32(90000) / uint32(cards.length);
+        address[] memory accounts = new address[](addressToPercent.length() + 1);
+        uint32[] memory percentAllocations = new uint32[](addressToPercent.length() + 1);
+        uint256 percentTotal = 0;
+        for (uint256 x = 0; x < addressToPercent.length(); x++) {
+            (address tempAddr,uint256 percent) = addressToPercent.at(x);
+            accounts[x] = tempAddr;
+            percentTotal += percent;
         }
-        accounts[cards.length] = owner;
-        percentAllocations[cards.length] = 100000 - (90000 / uint32(cards.length) * uint32(cards.length));
-        split = SPLITS.createSplit(accounts, percentAllocations, 0, address(this));
+        accounts[addressToPercent.length()] = owner;
+        addressToPercent.set(owner, 100000 - percentTotal);
+
+        // now we have a sorted account list
+        // lets loop through and set the percents now
+        accounts = sortAddresses(accounts);
+
+        // now lets make a percents array with the sorted array
+        for (uint256 y = 0; y < accounts.length; y++) {
+            percentAllocations[y] = uint32(addressToPercent.get(accounts[y]));
+        }
+
+        split = SPLITS.createSplit(accounts, percentAllocations, 0, address(0));
         CACHING.cache(pid, 1);
         stage = Stages.Cached;
 
@@ -200,6 +233,15 @@ contract Binder is ERC1155TokenReceiver, Owned {
         IERC20(token).transfer(to, amount);
     }
 
+    function sortAddresses (address [] memory addresses) internal pure returns (address [] memory) {
+        for (uint256 i = addresses.length - 1; i > 0; i--)
+            for (uint256 j = 0; j < i; j++)
+                if (addresses [i] < addresses [j])
+                    (addresses [i], addresses [j]) = (addresses [j], addresses [i]);
+
+        return addresses;
+    }
+
     /// @notice Handles the receipt of a single ERC1155 token type
     function onERC1155Received(
         address,
@@ -230,16 +272,23 @@ contract Factory is Owned {
     address public rewards;
     address public splits;
 
-    mapping(uint256 => uint32) public cardsToPoints;
+    mapping(uint256 => uint256) public cardsToPercent;
 
     constructor(address _rewards, address _splits) Owned(msg.sender) {
         rewards = _rewards;
         splits = _splits;
     }
 
+    function updateCardsToPercent(uint256[] calldata _cards, uint256[] calldata _percents) public onlyOwner {
+        require(_cards.length == _percents.length, "mismatch");
+        for (uint256 x = 0; x < _cards.length; x++) {
+            cardsToPercent[_cards[x]] = _percents[x];
+        }
+    }
+
     function newBinder(uint256 pid) public returns(Binder){
         uint256[] memory ids = IPrimeRewards(rewards).getPoolTokenIds(pid);
-        Binder binder = new Binder(owner, rewards, splits, pid, ids);
+        Binder binder = new Binder(address(this), owner, rewards, splits, pid, ids);
         emit NewBinder(pid, address(binder));
         return binder;
     }
