@@ -71,6 +71,10 @@ interface IPrimeEvent {
     ) external;
 }
 
+interface IFactory {
+    function cardsToPercent(uint256) external view returns(uint256);
+}
+
 contract Binder is ERC1155TokenReceiver {
     // Add the library methods
     using EnumerableMap for EnumerableMap.AddressToUintMap;
@@ -84,7 +88,7 @@ contract Binder is ERC1155TokenReceiver {
     IPrimeRewards public CACHING;
     // 0x2ed6c4B5dA6378c7897AC67Ba9e43102Feb694EE
     ISplitMain public SPLITS;
-    Factory public FACTORY;
+    IFactory public FACTORY;
     uint256[] public cards;
     bool public initialized;
 
@@ -115,7 +119,7 @@ contract Binder is ERC1155TokenReceiver {
         owner = _owner;
         CACHING = IPrimeRewards(_rewards);
         SPLITS = ISplitMain(_splits);
-        FACTORY = Factory(_factory);
+        FACTORY = IFactory(_factory);
         pid = _pid;
         cards = _cards;
         totalCardsNeeded = cards.length;
@@ -202,7 +206,7 @@ contract Binder is ERC1155TokenReceiver {
             percentTotal += percent;
         }
         accounts[addressToPercent.length()] = owner;
-        addressToPercent.set(owner, 100000 - percentTotal);
+        addressToPercent.set(owner, 1000000 - percentTotal);
 
         // now we have a sorted account list
         // lets loop through and set the percents now
