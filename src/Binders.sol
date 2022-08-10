@@ -62,6 +62,15 @@ interface ISplitMain {
   ) external returns (address);
 }
 
+interface IPrimeEvent {
+    function claim(
+        uint256,
+        uint256,
+        uint256,
+        bytes32[] calldata
+    ) external;
+}
+
 contract Binder is ERC1155TokenReceiver {
     // Add the library methods
     using EnumerableMap for EnumerableMap.AddressToUintMap;
@@ -183,7 +192,7 @@ contract Binder is ERC1155TokenReceiver {
     }
 
     /// @notice Attempt to cache. Will only work if we have all the cards needed.
-    function _cache() internal {        
+    function _cache() internal {    
         address[] memory accounts = new address[](addressToPercent.length() + 1);
         uint32[] memory percentAllocations = new uint32[](addressToPercent.length() + 1);
         uint256 percentTotal = 0;
@@ -241,6 +250,10 @@ contract Binder is ERC1155TokenReceiver {
     /// @notice Will send Prime to split contract
     function splitPrime() public {
         IERC20(CACHING.PRIME()).transfer(split, IERC20(CACHING.PRIME()).balanceOf(address(this)));
+    }
+
+    function claimPrimeEvent(address claimAddress, uint256 claimAmount, uint256 index, uint256 maximumAmount, bytes32[] calldata merkleProof) public {
+        IPrimeEvent(claimAddress).claim(claimAmount, index, maximumAmount, merkleProof);
     }
 
     function emergencyUncache() public onlyOwner {
