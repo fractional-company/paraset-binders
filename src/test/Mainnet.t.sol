@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.10;
 
-import "ds-test/test.sol";
+import "forge-std/Test.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
 import {ERC1155} from "solmate/tokens/ERC1155.sol";
 import "../Binders.sol";
@@ -164,8 +164,12 @@ contract MockRewards is ERC1155TokenReceiver {
 
 contract MockSplit {
     function createSplit(address[] calldata accounts, uint32[] calldata amounts, uint32 fee, address controller) public returns (address) {
+        for (uint256 i = 0; i < accounts.length - 1; i++) {
+            require(accounts[i] < accounts[i + 1], "not ordered");
+        }
         uint32 sum = 0;
         for (uint256 x = 0; x < amounts.length; x++) {
+            require(amounts[x] > 0, "not set");
             sum += amounts[x];
         }
         require(sum == 100000, "wrong amounts");
@@ -176,6 +180,7 @@ contract MockSplit {
 interface CheatCodes {
     // Set block.timestamp
     function warp(uint256) external;
+    function prank(address) external;
 }
 
 
@@ -185,11 +190,8 @@ contract PS15ArtTest is DSTest {
 
     Factory public factory;
     Binder public art;
-    Binder public art2;
-    TestERC20 public prime;
-    TestERC1155 public cards;
-    MockRewards public rewards;
-    MockSplit public split;
+    IERC20 public prime;
+    IERC1155 public cards;
 
     User public user1;
     User public user2;
@@ -198,131 +200,103 @@ contract PS15ArtTest is DSTest {
     User public user5;
     User public user6;
 
+    uint256[] public setCards;
+    uint256[] public setPercent;
+
     function setUp() public {
         vm = CheatCodes(0x7109709ECfa91a80626fF3989D68f67F5b1DD12D);
-        prime = new TestERC20();
-        cards = new TestERC1155();
-        rewards = new MockRewards(address(cards), address(prime));
-        split = new MockSplit();
-        factory = new Factory(address(rewards), address(split));
+        prime = IERC20(address(0xb23d80f5FefcDDaa212212F028021B41DEd428CF));
+        cards = IERC1155(address(0x76BE3b62873462d2142405439777e971754E8E77));
+        factory = new Factory(address(0xECa9D81a4dC7119A40481CFF4e7E24DD0aaF56bD), address(0x2ed6c4B5dA6378c7897AC67Ba9e43102Feb694EE));
 
-        art = factory.newBinder(15);
-        art2 = factory.newBinder(3);
+        setCards.push(10666);
+        setCards.push(10688);
+        setCards.push(10705);
+        setCards.push(10726);
+        setCards.push(10746);
+        setPercent.push(180000);
+        setPercent.push(180000);
+        setPercent.push(180000);
+        setPercent.push(180000);
+        setPercent.push(180000);
+
+        factory.updateCardsToPercent(setCards, setPercent);
+
+        art = Binder(factory.newBinder(19));
 
         user1 = new User(address(art), address(cards));
-        user2 = new User(address(art), address(cards));
-        user3 = new User(address(art), address(cards));
-        user4 = new User(address(art2), address(cards));
-        user5 = new User(address(art2), address(cards));
-        user6 = new User(address(art2), address(cards));
+        // user2 = new User(address(art), address(cards));
+        // user3 = new User(address(art), address(cards));
+        // user4 = new User(address(art2), address(cards));
+        // user5 = new User(address(art2), address(cards));
+        // user6 = new User(address(art2), address(cards));
 
-        cards.mint(address(user1), 27, 1);
-        cards.mint(address(user1), 28, 1);
-        cards.mint(address(user1), 29, 1);
-        cards.mint(address(user1), 30, 1);
-        cards.mint(address(user2), 31, 1);
-        cards.mint(address(user2), 33, 1);
-        cards.mint(address(user2), 34, 1);
-        cards.mint(address(user2), 35, 1);
-        cards.mint(address(user3), 27, 1);
-        cards.mint(address(user3), 28, 1);
-        cards.mint(address(user3), 29, 1);
-        cards.mint(address(user3), 30, 1);
-        cards.mint(address(user3), 31, 1);
-        cards.mint(address(user3), 33, 1);
-        cards.mint(address(user3), 34, 1);
-        cards.mint(address(user3), 35, 1);
+        // cards.mint(address(user1), 27, 1);
+        // cards.mint(address(user1), 28, 1);
+        // cards.mint(address(user1), 29, 1);
+        // cards.mint(address(user1), 30, 1);
+        // cards.mint(address(user2), 31, 1);
+        // cards.mint(address(user2), 33, 1);
+        // cards.mint(address(user2), 34, 1);
+        // cards.mint(address(user2), 35, 1);
+        // cards.mint(address(user3), 27, 1);
+        // cards.mint(address(user3), 28, 1);
+        // cards.mint(address(user3), 29, 1);
+        // cards.mint(address(user3), 30, 1);
+        // cards.mint(address(user3), 31, 1);
+        // cards.mint(address(user3), 33, 1);
+        // cards.mint(address(user3), 34, 1);
+        // cards.mint(address(user3), 35, 1);
 
-        cards.mint(address(user4), 10214, 1);
-        cards.mint(address(user4), 10215, 1);
-        cards.mint(address(user4), 10216, 1);
-        cards.mint(address(user4), 10217, 1);
-        cards.mint(address(user5), 10218, 1);
-        cards.mint(address(user5), 10219, 1);
-        cards.mint(address(user5), 10220, 1);
-        cards.mint(address(user5), 10221, 1);
-        cards.mint(address(user6), 10222, 1);
-        cards.mint(address(user6), 10223, 1);
-    }
-
-    function testDeposit() public {
-        user1.depositCard(27);
-        assertEq(cards.balanceOf(address(user1), 27), 0);
-    }
-
-    function testFail_DepositDouble() public {
-        user1.depositCard(27);
-        user3.depositCard(27);
-    }
-
-    function testWithdraw() public {
-        user1.depositCard(27);
-        user1.withdrawCard(27);
-        assertEq(cards.balanceOf(address(user1), 27), 1);
-    }
-
-    function testFail_WithdrawNotYours() public {
-        user1.depositCard(27);
-        user2.withdrawCard(27);
+        // cards.mint(address(user4), 10214, 1);
+        // cards.mint(address(user4), 10215, 1);
+        // cards.mint(address(user4), 10216, 1);
+        // cards.mint(address(user4), 10217, 1);
+        // cards.mint(address(user5), 10218, 1);
+        // cards.mint(address(user5), 10219, 1);
+        // cards.mint(address(user5), 10220, 1);
+        // cards.mint(address(user5), 10221, 1);
+        // cards.mint(address(user6), 10222, 1);
+        // cards.mint(address(user6), 10223, 1);
     }
 
     function testCache() public {
-        user1.depositCard(27);
-        user1.depositCard(28);
-        user1.depositCard(29);
-        user1.depositCard(30);
-        user2.depositCard(31);
-        user2.depositCard(33);
-        user2.depositCard(34);
-        user2.depositCard(35);
+        vm.prank(0x98a2c0E2F9E7E35C7d4924B456AB413d250aC73B);
+        cards.setApprovalForAll(address(art), true);
+        vm.prank(0x98a2c0E2F9E7E35C7d4924B456AB413d250aC73B);
+        art.deposit(10666);
+        vm.prank(0x98a2c0E2F9E7E35C7d4924B456AB413d250aC73B);
+        art.deposit(10688);
+        vm.prank(0x98a2c0E2F9E7E35C7d4924B456AB413d250aC73B);
+        art.deposit(10705);
+        vm.prank(0x98a2c0E2F9E7E35C7d4924B456AB413d250aC73B);
+        art.deposit(10726);
+        vm.prank(0x98a2c0E2F9E7E35C7d4924B456AB413d250aC73B);
+        art.deposit(10746);
     }
 
-    function testCache2() public {
-        user4.depositCard(10214);
-        user4.depositCard(10215);
-        user4.depositCard(10216);
-        user4.depositCard(10217);
-        user5.depositCard(10218);
-        user5.depositCard(10219);
-        user5.depositCard(10220);
-        user5.depositCard(10221);
-        user6.depositCard(10222);
-        user6.depositCard(10223);
-    }
 
-    function testFail_WithdrawWhileCached() public {
-        user1.depositCard(27);
-        user1.depositCard(28);
-        user1.depositCard(29);
-        user1.depositCard(30);
-        user2.depositCard(31);
-        user2.depositCard(33);
-        user2.depositCard(34);
-        user2.depositCard(35);
-        user1.withdrawCard(27);
-    }
+    // function test_UncacheTimestamp() public {
+    //     user1.depositCard(27);
+    //     user1.depositCard(28);
+    //     user1.depositCard(29);
+    //     user1.depositCard(30);
+    //     user2.depositCard(31);
+    //     user2.depositCard(33);
+    //     user2.depositCard(34);
+    //     user2.depositCard(35);
 
-    function test_UncacheTimestamp() public {
-        user1.depositCard(27);
-        user1.depositCard(28);
-        user1.depositCard(29);
-        user1.depositCard(30);
-        user2.depositCard(31);
-        user2.depositCard(33);
-        user2.depositCard(34);
-        user2.depositCard(35);
+    //     rewards.setEndTimestamp(block.timestamp + 5 days);
+    //     vm.warp(block.timestamp + 6 days);
 
-        rewards.setEndTimestamp(block.timestamp + 5 days);
-        vm.warp(block.timestamp + 6 days);
+    //     art.uncache();
+    // }
 
-        art.uncache();
-    }
+    // function test_claimPrime() public {
+    //     art.claimPrime();
+    //     assertEq(prime.balanceOf(address(art)), 100000);
 
-    function test_claimPrime() public {
-        art.claimPrime();
-        assertEq(prime.balanceOf(address(art)), 100000);
-
-        art.splitPrime();
-        assertEq(prime.balanceOf(address(art.split())), 100000);
-    }
+    //     art.splitPrime();
+    //     assertEq(prime.balanceOf(address(art.split())), 100000);
+    // }
 }

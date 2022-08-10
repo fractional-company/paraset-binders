@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.10;
 
-import "ds-test/test.sol";
+import "forge-std/Test.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
 import {ERC1155} from "solmate/tokens/ERC1155.sol";
 import "../Binders.sol";
@@ -162,18 +162,90 @@ contract MockRewards is ERC1155TokenReceiver {
     }
 }
 
+/// @notice Unauthorized sender `sender`
+/// @param sender Transaction sender
+error Unauthorized(address sender);
+/// @notice Invalid number of accounts `accountsLength`, must have at least 2
+/// @param accountsLength Length of accounts array
+error InvalidSplit__TooFewAccounts(uint256 accountsLength);
+/// @notice Array lengths of accounts & percentAllocations don't match (`accountsLength` != `allocationsLength`)
+/// @param accountsLength Length of accounts array
+/// @param allocationsLength Length of percentAllocations array
+error InvalidSplit__AccountsAndAllocationsMismatch(
+  uint256 accountsLength,
+  uint256 allocationsLength
+);
+/// @notice Invalid percentAllocations sum `allocationsSum` must equal `PERCENTAGE_SCALE`
+/// @param allocationsSum Sum of percentAllocations array
+error InvalidSplit__InvalidAllocationsSum(uint32 allocationsSum);
+/// @notice Invalid accounts ordering at `index`
+/// @param index Index of out-of-order account
+error InvalidSplit__AccountsOutOfOrder(uint256 index);
+/// @notice Invalid percentAllocation of zero at `index`
+/// @param index Index of zero percentAllocation
+error InvalidSplit__AllocationMustBePositive(uint256 index);
+/// @notice Invalid distributorFee `distributorFee` cannot be greater than 10% (1e5)
+/// @param distributorFee Invalid distributorFee amount
+error InvalidSplit__InvalidDistributorFee(uint32 distributorFee);
+/// @notice Invalid hash `hash` from split data (accounts, percentAllocations, distributorFee)
+/// @param hash Invalid hash
+error InvalidSplit__InvalidHash(bytes32 hash);
+/// @notice Invalid new controlling address `newController` for mutable split
+/// @param newController Invalid new controller
+error InvalidNewController(address newController);
+
 contract MockSplit {
-    function createSplit(address[] calldata accounts, uint32[] calldata amounts, uint32 fee, address controller) public returns (address) {
-        for (uint256 i = 0; i < accounts.length - 1; i++) {
-            require(accounts[i] < accounts[i + 1], "not ordered");
+    function createSplit(address[] calldata accounts, uint32[] calldata percentAllocations, uint32 distributorFee, address controller) public returns (address) {
+        if (accounts.length < 2)
+            revert InvalidSplit__TooFewAccounts(accounts.length);
+        if (accounts.length != percentAllocations.length)
+            revert InvalidSplit__AccountsAndAllocationsMismatch(
+                accounts.length,
+                percentAllocations.length
+            );
+        // _getSum should overflow if any percentAllocation[i] < 0
+        if (_getSum(percentAllocations) != 1e6)
+            revert InvalidSplit__InvalidAllocationsSum(_getSum(percentAllocations));
+        unchecked {
+            // overflow should be impossible in for-loop index
+            // cache accounts length to save gas
+            uint256 loopLength = accounts.length - 1;
+            for (uint256 i = 0; i < loopLength; ++i) {
+                // overflow should be impossible in array access math
+                if (accounts[i] >= accounts[i + 1])
+                revert InvalidSplit__AccountsOutOfOrder(i);
+                if (percentAllocations[i] == uint32(0))
+                revert InvalidSplit__AllocationMustBePositive(i);
+            }
+            // overflow should be impossible in array access math with validated equal array lengths
+            if (percentAllocations[loopLength] == uint32(0))
+                revert InvalidSplit__AllocationMustBePositive(loopLength);
         }
-        uint32 sum = 0;
-        for (uint256 x = 0; x < amounts.length; x++) {
-            require(amounts[x] > 0, "not set");
-            sum += amounts[x];
-        }
-        require(sum == 100000, "wrong amounts");
+        if (distributorFee > 1e5)
+            revert InvalidSplit__InvalidDistributorFee(distributorFee);
+
+        // for (uint256 i = 0; i < accounts.length - 1; i++) {
+        //     require(accounts[i] < accounts[i + 1], "not ordered");
+        // }
+        // uint32 sum = 0;
+        // for (uint256 x = 0; x < amounts.length; x++) {
+        //     require(amounts[x] > 0, "not set");
+        //     sum += amounts[x];
+        // }
+        // require(sum == 100000, "wrong amounts");
         return address(this);
+    }
+
+    function _getSum(uint32[] memory numbers) internal pure returns (uint32 sum) {
+        // overflow should be impossible in for-loop index
+        uint256 numbersLength = numbers.length;
+        for (uint256 i = 0; i < numbersLength; ) {
+        sum += numbers[i];
+        unchecked {
+            // overflow should be impossible in for-loop index
+            ++i;
+        }
+        }
     }
 }
 
@@ -219,12 +291,12 @@ contract PS15ArtTest is DSTest {
         setCards.push(10490);
         setCards.push(10628);
         setCards.push(10629);
-        setPercent.push(2432);
-        setPercent.push(7297);
-        setPercent.push(7297);
-        setPercent.push(14595);
-        setPercent.push(29189);
-        setPercent.push(29189);
+        setPercent.push(24320);
+        setPercent.push(72970);
+        setPercent.push(72970);
+        setPercent.push(145950);
+        setPercent.push(291890);
+        setPercent.push(291890);
 
         setCards.push(27);
         setCards.push(28);
@@ -234,14 +306,14 @@ contract PS15ArtTest is DSTest {
         setCards.push(33);
         setCards.push(34);
         setCards.push(35);
-        setPercent.push(11250);
-        setPercent.push(11250);
-        setPercent.push(11250);
-        setPercent.push(11250);
-        setPercent.push(11250);
-        setPercent.push(11250);
-        setPercent.push(11250);
-        setPercent.push(11250);
+        setPercent.push(112500);
+        setPercent.push(112500);
+        setPercent.push(112500);
+        setPercent.push(112500);
+        setPercent.push(112500);
+        setPercent.push(112500);
+        setPercent.push(112500);
+        setPercent.push(112500);
 
         setCards.push(10214);
         setCards.push(10215);
@@ -253,22 +325,22 @@ contract PS15ArtTest is DSTest {
         setCards.push(10221);
         setCards.push(10222);
         setCards.push(10223);
-        setPercent.push(9000);
-        setPercent.push(9000);
-        setPercent.push(9000);
-        setPercent.push(9000);
-        setPercent.push(9000);
-        setPercent.push(9000);
-        setPercent.push(9000);
-        setPercent.push(9000);
-        setPercent.push(9000);
-        setPercent.push(9000);
+        setPercent.push(90000);
+        setPercent.push(90000);
+        setPercent.push(90000);
+        setPercent.push(90000);
+        setPercent.push(90000);
+        setPercent.push(90000);
+        setPercent.push(90000);
+        setPercent.push(90000);
+        setPercent.push(90000);
+        setPercent.push(90000);
 
         factory.updateCardsToPercent(setCards, setPercent);
 
 
-        art = factory.newBinder(15);
-        art2 = factory.newBinder(3);
+        art = Binder(factory.newBinder(15));
+        art2 = Binder(factory.newBinder(3));
 
         user1 = new User(address(art), address(cards));
         user2 = new User(address(art), address(cards));
