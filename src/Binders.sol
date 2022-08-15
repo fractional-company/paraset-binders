@@ -180,6 +180,12 @@ contract Binder is ERC1155TokenReceiver {
         emit Deposit(msg.sender, cardId);
     }
 
+    function batchDeposit(uint256[] calldata cardIds) public {
+        for (uint256 x = 0; x < cardIds.length; x++) {
+            deposit(cardIds[x]);
+        }
+    }
+
     /// @notice Withdraw a card from the set. Requires we are not locked.
     /// @param cardId The id of the card we want to withdraw.
     function withdraw(uint256 cardId) public isSetup {
@@ -190,9 +196,20 @@ contract Binder is ERC1155TokenReceiver {
 
         uint256 percents = FACTORY.cardsToPercent(cardId);
         (, uint256 total) = addressToPercent.tryGet(msg.sender);
-        addressToPercent.set(msg.sender, total - percents);
+        uint256 newPercent = total - percents;
+        if (newPercent == 0) {
+            addressToPercent.remove(msg.sender);
+        } else {
+            addressToPercent.set(msg.sender, newPercent);
+        }
   
         emit Withdraw(msg.sender, cardId);
+    }
+
+    function batchWithdraw(uint256[] calldata cardIds) public {
+        for (uint256 x = 0; x < cardIds.length; x++) {
+            withdraw(cardIds[x]);
+        }
     }
 
     /// @notice Attempt to cache. Will only work if we have all the cards needed.
