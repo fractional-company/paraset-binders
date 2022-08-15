@@ -36,8 +36,16 @@ contract User is ERC1155TokenReceiver {
         art.deposit(id);
     }
 
+    function batchDepositCard(uint256[] calldata ids) public {
+        art.batchDeposit(ids);
+    }
+
     function withdrawCard(uint256 id) public {
         art.withdraw(id);
+    }
+
+    function batchWithdrawCards(uint256[] calldata ids) public {
+        art.batchWithdraw(ids);
     }
 
     /// @notice Handles the receipt of a single ERC1155 token type
@@ -277,6 +285,8 @@ contract PS15ArtTest is DSTest {
     uint256[] public setCards;
     uint256[] public setPercent;
 
+    uint256[] public depositCards;
+
     function setUp() public {
         vm = CheatCodes(0x7109709ECfa91a80626fF3989D68f67F5b1DD12D);
         prime = new TestERC20();
@@ -437,6 +447,32 @@ contract PS15ArtTest is DSTest {
         user2.depositCard(33);
         user2.depositCard(34);
         user2.depositCard(35);
+    }
+
+    function testCache4() public {
+        user1.depositCard(27);
+        user1.withdrawCard(27);
+        user2.depositCard(31);
+        user2.depositCard(33);
+        user2.depositCard(34);
+        user2.depositCard(35);
+        user3.depositCard(27);
+        user3.depositCard(28);
+        user3.depositCard(29);
+        user3.depositCard(30);
+    }    
+    
+    function testCacheBatch() public {
+        depositCards.push(27);
+        depositCards.push(28);
+        depositCards.push(29);
+        depositCards.push(30);
+        depositCards.push(31);
+        depositCards.push(33);
+        depositCards.push(34);
+        depositCards.push(35);
+        user3.batchDepositCard(depositCards);
+        assertEq(art.getAddressPercent(address(user3)), 9e5);
     }
 
     function testFail_WithdrawWhileCached() public {
