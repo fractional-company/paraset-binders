@@ -26,18 +26,32 @@ contract TestERC1155 is ERC1155 {
 contract User is ERC1155TokenReceiver {
 
     Binder public art;
+    ERC1155 public cards;
 
     constructor(address _art, address _cards) {
         art = Binder(_art);
-        ERC1155(_cards).setApprovalForAll(_art, true);
+        cards = ERC1155(_cards);
+        cards.setApprovalForAll(_art, true);
     }
 
     function depositCard(uint256 id) public {
-        art.deposit(id);
+        cards.safeTransferFrom(address(this), address(art), id, 1, "0x0");
+    }
+
+    function batchDepositCard(uint256[] calldata ids) public {
+        uint256[] memory amounts = new uint256[](ids.length);
+        for (uint256 x = 0; x < ids.length; x++) {
+            amounts[x] = 1;
+        }
+        cards.safeBatchTransferFrom(address(this), address(art), ids, amounts, "0x0");
     }
 
     function withdrawCard(uint256 id) public {
         art.withdraw(id);
+    }
+
+    function batchWithdrawCards(uint256[] calldata ids) public {
+        art.batchWithdraw(ids);
     }
 
     /// @notice Handles the receipt of a single ERC1155 token type
@@ -264,15 +278,15 @@ contract PS15ArtTest is DSTest {
         vm.prank(0x98a2c0E2F9E7E35C7d4924B456AB413d250aC73B);
         cards.setApprovalForAll(address(art), true);
         vm.prank(0x98a2c0E2F9E7E35C7d4924B456AB413d250aC73B);
-        art.deposit(10666);
+        cards.safeTransferFrom(address(0x98a2c0E2F9E7E35C7d4924B456AB413d250aC73B), address(art), 10666, 1, "0x0");
         vm.prank(0x98a2c0E2F9E7E35C7d4924B456AB413d250aC73B);
-        art.deposit(10688);
+        cards.safeTransferFrom(address(0x98a2c0E2F9E7E35C7d4924B456AB413d250aC73B), address(art), 10688, 1, "0x0");
         vm.prank(0x98a2c0E2F9E7E35C7d4924B456AB413d250aC73B);
-        art.deposit(10705);
+        cards.safeTransferFrom(address(0x98a2c0E2F9E7E35C7d4924B456AB413d250aC73B), address(art), 10705, 1, "0x0");
         vm.prank(0x98a2c0E2F9E7E35C7d4924B456AB413d250aC73B);
-        art.deposit(10726);
+        cards.safeTransferFrom(address(0x98a2c0E2F9E7E35C7d4924B456AB413d250aC73B), address(art), 10726, 1, "0x0");
         vm.prank(0x98a2c0E2F9E7E35C7d4924B456AB413d250aC73B);
-        art.deposit(10746);
+        cards.safeTransferFrom(address(0x98a2c0E2F9E7E35C7d4924B456AB413d250aC73B), address(art), 10746, 1, "0x0");
     }
 
 

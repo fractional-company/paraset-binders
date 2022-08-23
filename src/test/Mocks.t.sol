@@ -26,18 +26,24 @@ contract TestERC1155 is ERC1155 {
 contract User is ERC1155TokenReceiver {
 
     Binder public art;
+    ERC1155 public cards;
 
     constructor(address _art, address _cards) {
         art = Binder(_art);
-        ERC1155(_cards).setApprovalForAll(_art, true);
+        cards = ERC1155(_cards);
+        cards.setApprovalForAll(_art, true);
     }
 
     function depositCard(uint256 id) public {
-        art.deposit(id);
+        cards.safeTransferFrom(address(this), address(art), id, 1, "0x0");
     }
 
     function batchDepositCard(uint256[] calldata ids) public {
-        art.batchDeposit(ids);
+        uint256[] memory amounts = new uint256[](ids.length);
+        for (uint256 x = 0; x < ids.length; x++) {
+            amounts[x] = 1;
+        }
+        cards.safeBatchTransferFrom(address(this), address(art), ids, amounts, "0x0");
     }
 
     function withdrawCard(uint256 id) public {
@@ -418,6 +424,7 @@ contract PS15ArtTest is DSTest {
         user2.depositCard(33);
         user2.depositCard(34);
         user2.depositCard(35);
+        art.cache();
     }
 
     function testCache2() public {
@@ -431,22 +438,21 @@ contract PS15ArtTest is DSTest {
         user5.depositCard(10221);
         user6.depositCard(10222);
         user6.depositCard(10223);
+        art2.cache();
     }
 
     function testCache3() public {
         user1.depositCard(27);
-        assertEq(factory.cardsToPercent(27), art.getAddressPercent(address(user1)));
         user1.depositCard(28);
         user1.depositCard(29);
-        uint256 percent = art.getAddressPercent(address(user1));
         user1.withdrawCard(29);
-        assert(percent > art.getAddressPercent(address(user1)));
         user1.depositCard(29);
         user1.depositCard(30);
         user2.depositCard(31);
         user2.depositCard(33);
         user2.depositCard(34);
         user2.depositCard(35);
+        art.cache();
     }
 
     function testCache4() public {
@@ -460,6 +466,7 @@ contract PS15ArtTest is DSTest {
         user3.depositCard(28);
         user3.depositCard(29);
         user3.depositCard(30);
+        art.cache();
     }    
     
     function testCacheBatch() public {
@@ -472,7 +479,20 @@ contract PS15ArtTest is DSTest {
         depositCards.push(34);
         depositCards.push(35);
         user3.batchDepositCard(depositCards);
+        art.cache();
         assertEq(art.getAddressPercent(address(user3)), 9e5);
+    }
+
+    function testFail_UncacheTooSoon() public {
+        user1.depositCard(27);
+        user1.depositCard(28);
+        user1.depositCard(29);
+        user1.depositCard(30);
+        user2.depositCard(31);
+        user2.depositCard(33);
+        user2.depositCard(34);
+        user2.depositCard(35);
+        art.uncache();
     }
 
     function testFail_WithdrawWhileCached() public {
@@ -484,6 +504,7 @@ contract PS15ArtTest is DSTest {
         user2.depositCard(33);
         user2.depositCard(34);
         user2.depositCard(35);
+        art.cache();
         user1.withdrawCard(27);
     }
 
@@ -496,6 +517,7 @@ contract PS15ArtTest is DSTest {
         user2.depositCard(33);
         user2.depositCard(34);
         user2.depositCard(35);
+        art.cache();
 
         rewards.setEndTimestamp(block.timestamp + 5 days);
         vm.warp(block.timestamp + 6 days);
@@ -509,5 +531,43 @@ contract PS15ArtTest is DSTest {
 
         art.splitPrime();
         assertEq(prime.balanceOf(address(art.split())), 100000);
+    }
+
+    function test_unlockAll() public {
+        user1.depositCard(27);
+        user1.depositCard(28);
+        user1.depositCard(29);
+        user1.depositCard(30);
+        user2.depositCard(31);
+        user2.depositCard(33);
+        user2.depositCard(34);
+        user2.depositCard(35);
+        art.cache();
+
+        factory.unlock();
+        art.uncache();
+    }
+
+    function test_batch() public {
+        uint256[] memory user1ids = new uint256[](4);
+        user1ids[0] = 27;
+        user1ids[1] = 28;
+        user1ids[2] = 29;
+        user1ids[3] = 30;
+        user1.batchDepositCard(user1ids);
+
+        uint256[] memory user2ids = new uint256[](4);
+        user2ids[0] = 31;
+        user2ids[1] = 33;
+        user2ids[2] = 34;
+        user2ids[3] = 35;
+        user2.batchDepositCard(user2ids);
+        art.cache();
+
+        factory.unlock();
+        art.uncache();
+
+        user1.batchWithdrawCards(user1ids);
+        user2.batchWithdrawCards(user2ids);
     }
 }
