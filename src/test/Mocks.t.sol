@@ -570,4 +570,9 @@ contract PS15ArtTest is DSTest {
         user1.batchWithdrawCards(user1ids);
         user2.batchWithdrawCards(user2ids);
     }
+
+    function test_helper() public {
+        FactoryDeployerHelper fdh = new FactoryDeployerHelper(address(rewards), address(split));
+        fdh.newFactory();
+    }
 }
