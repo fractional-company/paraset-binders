@@ -273,6 +273,7 @@ contract PS15ArtTest is DSTest {
 
     CheatCodes public vm;
 
+    FactoryDeployerHelper public helper;
     Factory public factory;
     Binder public art;
     Binder public art2;
@@ -299,60 +300,61 @@ contract PS15ArtTest is DSTest {
         cards = new TestERC1155();
         rewards = new MockRewards(address(cards), address(prime));
         split = new MockSplit();
-        factory = new Factory(address(rewards), address(split));
+        helper = new FactoryDeployerHelper(address(rewards), address(split));
+        factory = Factory(helper.newFactory());
 
-        setCards.push(10627);
-        setCards.push(10645);
-        setCards.push(10625);
-        setCards.push(10490);
-        setCards.push(10628);
-        setCards.push(10629);
-        setPercent.push(24320);
-        setPercent.push(72970);
-        setPercent.push(72970);
-        setPercent.push(145950);
-        setPercent.push(291890);
-        setPercent.push(291890);
+        // setCards.push(10627);
+        // setCards.push(10645);
+        // setCards.push(10625);
+        // setCards.push(10490);
+        // setCards.push(10628);
+        // setCards.push(10629);
+        // setPercent.push(24320);
+        // setPercent.push(72970);
+        // setPercent.push(72970);
+        // setPercent.push(145950);
+        // setPercent.push(291890);
+        // setPercent.push(291890);
 
-        setCards.push(27);
-        setCards.push(28);
-        setCards.push(29);
-        setCards.push(30);
-        setCards.push(31);
-        setCards.push(33);
-        setCards.push(34);
-        setCards.push(35);
-        setPercent.push(112500);
-        setPercent.push(112500);
-        setPercent.push(112500);
-        setPercent.push(112500);
-        setPercent.push(112500);
-        setPercent.push(112500);
-        setPercent.push(112500);
-        setPercent.push(112500);
+        // setCards.push(27);
+        // setCards.push(28);
+        // setCards.push(29);
+        // setCards.push(30);
+        // setCards.push(31);
+        // setCards.push(33);
+        // setCards.push(34);
+        // setCards.push(35);
+        // setPercent.push(112500);
+        // setPercent.push(112500);
+        // setPercent.push(112500);
+        // setPercent.push(112500);
+        // setPercent.push(112500);
+        // setPercent.push(112500);
+        // setPercent.push(112500);
+        // setPercent.push(112500);
 
-        setCards.push(10214);
-        setCards.push(10215);
-        setCards.push(10216);
-        setCards.push(10217);
-        setCards.push(10218);
-        setCards.push(10219);
-        setCards.push(10220);
-        setCards.push(10221);
-        setCards.push(10222);
-        setCards.push(10223);
-        setPercent.push(90000);
-        setPercent.push(90000);
-        setPercent.push(90000);
-        setPercent.push(90000);
-        setPercent.push(90000);
-        setPercent.push(90000);
-        setPercent.push(90000);
-        setPercent.push(90000);
-        setPercent.push(90000);
-        setPercent.push(90000);
+        // setCards.push(10214);
+        // setCards.push(10215);
+        // setCards.push(10216);
+        // setCards.push(10217);
+        // setCards.push(10218);
+        // setCards.push(10219);
+        // setCards.push(10220);
+        // setCards.push(10221);
+        // setCards.push(10222);
+        // setCards.push(10223);
+        // setPercent.push(90000);
+        // setPercent.push(90000);
+        // setPercent.push(90000);
+        // setPercent.push(90000);
+        // setPercent.push(90000);
+        // setPercent.push(90000);
+        // setPercent.push(90000);
+        // setPercent.push(90000);
+        // setPercent.push(90000);
+        // setPercent.push(90000);
 
-        factory.updateCardsToPercent(setCards, setPercent);
+        // factory.updateCardsToPercent(setCards, setPercent);
 
 
         art = Binder(factory.newBinder(15));
@@ -480,7 +482,7 @@ contract PS15ArtTest is DSTest {
         depositCards.push(35);
         user3.batchDepositCard(depositCards);
         art.cache();
-        assertEq(art.getAddressPercent(address(user3)), 9e5);
+        assertEq(art.getAddressPercent(address(user3)), 925000);
     }
 
     function testFail_UncacheTooSoon() public {

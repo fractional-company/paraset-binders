@@ -202,6 +202,7 @@ contract PS15ArtTest is DSTest {
 
     CheatCodes public vm;
 
+    FactoryDeployerHelper public helper;
     Factory public factory;
     Binder public art;
     IERC20 public prime;
@@ -221,20 +222,21 @@ contract PS15ArtTest is DSTest {
         vm = CheatCodes(0x7109709ECfa91a80626fF3989D68f67F5b1DD12D);
         prime = IERC20(address(0xb23d80f5FefcDDaa212212F028021B41DEd428CF));
         cards = IERC1155(address(0x76BE3b62873462d2142405439777e971754E8E77));
-        factory = new Factory(address(0xECa9D81a4dC7119A40481CFF4e7E24DD0aaF56bD), address(0x2ed6c4B5dA6378c7897AC67Ba9e43102Feb694EE));
+        helper = new FactoryDeployerHelper(address(0xECa9D81a4dC7119A40481CFF4e7E24DD0aaF56bD), address(0x2ed6c4B5dA6378c7897AC67Ba9e43102Feb694EE));
+        factory = Factory(helper.newFactory());
 
-        setCards.push(10666);
-        setCards.push(10688);
-        setCards.push(10705);
-        setCards.push(10726);
-        setCards.push(10746);
-        setPercent.push(180000);
-        setPercent.push(180000);
-        setPercent.push(180000);
-        setPercent.push(180000);
-        setPercent.push(180000);
+        // setCards.push(10666);
+        // setCards.push(10688);
+        // setCards.push(10705);
+        // setCards.push(10726);
+        // setCards.push(10746);
+        // setPercent.push(180000);
+        // setPercent.push(180000);
+        // setPercent.push(180000);
+        // setPercent.push(180000);
+        // setPercent.push(180000);
 
-        factory.updateCardsToPercent(setCards, setPercent);
+        // factory.updateCardsToPercent(setCards, setPercent);
 
         art = Binder(factory.newBinder(19));
 
@@ -275,18 +277,21 @@ contract PS15ArtTest is DSTest {
     }
 
     function testCache() public {
-        vm.prank(0x98a2c0E2F9E7E35C7d4924B456AB413d250aC73B);
+        vm.prank(0xbE6C98AfC0c8CC40D98a9F1777653E28D6598efD);
         cards.setApprovalForAll(address(art), true);
-        vm.prank(0x98a2c0E2F9E7E35C7d4924B456AB413d250aC73B);
-        cards.safeTransferFrom(address(0x98a2c0E2F9E7E35C7d4924B456AB413d250aC73B), address(art), 10666, 1, "0x0");
-        vm.prank(0x98a2c0E2F9E7E35C7d4924B456AB413d250aC73B);
-        cards.safeTransferFrom(address(0x98a2c0E2F9E7E35C7d4924B456AB413d250aC73B), address(art), 10688, 1, "0x0");
-        vm.prank(0x98a2c0E2F9E7E35C7d4924B456AB413d250aC73B);
-        cards.safeTransferFrom(address(0x98a2c0E2F9E7E35C7d4924B456AB413d250aC73B), address(art), 10705, 1, "0x0");
-        vm.prank(0x98a2c0E2F9E7E35C7d4924B456AB413d250aC73B);
-        cards.safeTransferFrom(address(0x98a2c0E2F9E7E35C7d4924B456AB413d250aC73B), address(art), 10726, 1, "0x0");
-        vm.prank(0x98a2c0E2F9E7E35C7d4924B456AB413d250aC73B);
-        cards.safeTransferFrom(address(0x98a2c0E2F9E7E35C7d4924B456AB413d250aC73B), address(art), 10746, 1, "0x0");
+        vm.prank(0xbE6C98AfC0c8CC40D98a9F1777653E28D6598efD);
+        cards.safeTransferFrom(address(0xbE6C98AfC0c8CC40D98a9F1777653E28D6598efD), address(art), 10666, 1, "0x0");
+        vm.prank(0xbE6C98AfC0c8CC40D98a9F1777653E28D6598efD);
+        cards.safeTransferFrom(address(0xbE6C98AfC0c8CC40D98a9F1777653E28D6598efD), address(art), 10688, 1, "0x0");
+        vm.prank(0xbE6C98AfC0c8CC40D98a9F1777653E28D6598efD);
+        cards.safeTransferFrom(address(0xbE6C98AfC0c8CC40D98a9F1777653E28D6598efD), address(art), 10705, 1, "0x0");
+        vm.prank(0xbE6C98AfC0c8CC40D98a9F1777653E28D6598efD);
+        cards.safeTransferFrom(address(0xbE6C98AfC0c8CC40D98a9F1777653E28D6598efD), address(art), 10726, 1, "0x0");
+        vm.prank(0xbE6C98AfC0c8CC40D98a9F1777653E28D6598efD);
+        cards.safeTransferFrom(address(0xbE6C98AfC0c8CC40D98a9F1777653E28D6598efD), address(art), 10746, 1, "0x0");
+        art.cache();
+        factory.unlock();
+        art.uncache();
     }
 
 

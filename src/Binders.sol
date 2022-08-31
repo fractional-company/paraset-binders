@@ -503,5 +503,6 @@ contract FactoryDeployerHelper is Owned {
         factory.updateCardsToPercent(PD4FEcards, PD4FEpcnts);
         factory.updateCardsToPercent(PD4SEcards, PD4SEpcnts);
         factory.setOwner(msg.sender);
+        return address(factory);
     }
 }
